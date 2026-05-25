@@ -5,29 +5,49 @@ app.use(express.json());
 
 const STATE = {
     monitoring: false,
+    deviceToken: null,
     filters: { minMoney: 8, maxMiles: 5, maxItems: 20 },
     stats: { checked: 0, found: 0 }
 };
 
-app.post('/start', (req, res) => {
-    STATE.monitoring = true;
-    res.json({ status: 'monitoring', message: 'Abre Instacart en tu app y acepta manualmente' });
+// Guardar device token (el iPhone lo envía)
+app.post('/register-device', (req, res) => {
+    STATE.deviceToken = req.body.deviceToken;
+    console.log('✅ Device registered:', STATE.deviceToken);
+    res.json({ status: 'registered' });
 });
 
-app.post('/stop', (req, res) => {
-    STATE.monitoring = false;
-    res.json({ status: 'stopped' });
+// Backend detecta batch y notifica
+app.post('/notify-batch', (req, res) => {
+    const { price, miles, items } = req.body;
+    
+    // Comparar con filtros
+    if (price >= STATE.filters.minMoney && 
+        miles <= STATE.filters.maxMiles && 
+        items <= STATE.filters.maxItems) {
+        
+        console.log(`✅ BATCH FOUND: $${price} - ${miles}mi - ${items}items`);
+        
+        // Aquí iría Apple Push Notification (APN)
+        // Por ahora simulamos:
+        console.log(`📱 Would send notification to: ${STATE.deviceToken}`);
+        
+        STATE.stats.found++;
+        res.json({ status: 'batch found', notification: 'sent' });
+    } else {
+        res.json({ status: 'batch rejected', reason: 'does not match filters' });
+    }
 });
 
 app.get('/status', (req, res) => {
-    res.json({ monitoring: STATE.monitoring, filters: STATE.filters });
+    res.json({
+        monitoring: STATE.monitoring,
+        filters: STATE.filters,
+        stats: STATE.stats,
+        deviceToken: STATE.deviceToken ? '✅ Registered' : '❌ Not registered'
+    });
 });
 
-app.post('/config', (req, res) => {
-    if (req.body.minMoney) STATE.filters.minMoney = req.body.minMoney;
-    if (req.body.maxMiles) STATE.filters.maxMiles = req.body.maxMiles;
-    if (req.body.maxItems) STATE.filters.maxItems = req.body.maxItems;
-    res.json({ filters: STATE.filters });
+app.listen(10000, () => {
+    console.log('✅ Instacart Monitor READY - Port 10000');
 });
-
-app.listen(10000, () => console.log('✅ Instacart Monitor LISTO'));
